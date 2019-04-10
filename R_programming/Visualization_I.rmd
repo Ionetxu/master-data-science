@@ -1,0 +1,321 @@
+---
+title: 'Visualizacion y limpieza de datos con R'
+author: "FSC"
+date: "January 28, 2019"
+output:
+  pdf_document: 
+    toc: true
+    toc_depth: 5
+  html_document: 
+    toc: true
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Basic plots: paquete *graphics()*
+Una de las grandes fortalezas de R consiste en la facilidad con la que podemos representar datos de diferentes formas y con formato de alta calidad. Visualizar los datos es esencial para entenderlos y proponer modelos.
+
+Para seguir esta sesión necesitarás tener instaladas las siguientes librerias:
+```{r,warning=F,message=F}
+library(dslabs)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(readr)
+```
+
+### Scatterplots (nubes de puntos)
+El plot más básico en el que podemos pensar es una nube de puntos. Solemos utilizarlo con frecuencia si queremos entender la relación que existe entre dos variables. Por ejemplo, si queremos ver la relación entre el número de asesinatos en un estado y su población (por 100.000 habitantes) utilizamos la función *plot()*
+
+```{r}
+data(murders)
+?plot
+plot(murders$total,murders$population/10^5)
+```
+
+Para esta función podemos ajustar el tipo de punto con el parámetro *pch*:
+```{r}
+plot(murders$total,murders$population/10^5,pch="*")
+```
+
+O el color:
+```{r}
+plot(murders$total,murders$population/10^5,pch="*",col="red")
+```
+
+Cada vez que llamamos a la función *plot()* se abre una nueva ventana. Si queremos pintar en un gráfico ya existente tenemos dos opciones:
+
+```{r}
+plot(murders$total,murders$population/10^5,pch="*",col="red")
+par(new=T)
+plot(murders$total,murders$population/10^5,pch="o")
+```
+o bien usar *points()* o *lines()* que pintan puntos o unen puntos por medio de líneas si los puntos ya están dibujados. La función abline pinta una linea de pendiente b y ordenada en el origen a.
+```{r}
+plot(murders$total,murders$population/10^5,pch="*",col="red")
+points(murders$total,murders$population/10^5,lty=2)
+abline(a=0,b=1,lty=2)
+```
+El parámetro lty controla el tipo de línea (sólida, discontinua, etc) 
+
+Estos simples gráficos ya nos muestran que hay una relación de tipo lineal entre el numero de asesinatos y la población total de un estado
+
+### Histograms
+Un histograma nos muestra la distribución de los elementos de una muestra. Es decir, nos dice cuántos elementos de cada tipo hay.
+```{r}
+hist(murders$total)
+```
+Es decir, hay unos 32-33 estados con menos de 200 asesinatos; hay unos 10 estados con entre 200 y 400 asesinatos y el resto (~10 estados) sufrieron más de 400 asesinatos. EN particular parece que hay 1 estado con entre 1200 y 1400 asesinatos.
+
+Vamos a comprobarlo con una tabla. Primero binarizamos nuestros resultados en bins de 200:
+```{r}
+murders$total.bin=murders$total
+murders$total.bin[which(murders$total<=200)]=200
+murders$total.bin[which(murders$total>200 & murders$total<=400)]=400
+murders$total.bin[which(murders$total>400 & murders$total<=600)]=600
+murders$total.bin[which(murders$total>600 & murders$total<=800)]=800
+murders$total.bin[which(murders$total>800 & murders$total<=1000)]=1000
+murders$total.bin[which(murders$total>1000 & murders$total<=1200)]=1200
+murders$total.bin[which(murders$total>1200 & murders$total<=1400)]=1400
+table(murders$total.bin)
+```
+Arpovechamos para introducir la sintaxis de un loop en R. Podríamos haber utilizado un bucle para programar lo anterior:
+```{r}
+murders$total.bin=murders$total
+for (i in 1:7){
+  murders$total.bin[which(murders$total>200*(i-1) & murders$total<=200*i)]=200*i
+}
+table(murders$total.bin)
+```
+el número de bins puede cambiarse fácilmente con el comando *breaks()*
+```{r}
+hist(murders$total,breaks=10)
+```
+Y también podemos elegir ver la frecuencia (número de elementos en cada bin) o la probabilidad de tener un elemento en cada bin (# elementos en bin/total numero de elementos)
+```{r}
+hist(murders$total,freq = F)
+```
+Con este tipo de plot obtenemos una idea de cómo es la distribución de los datos: no simétrica, con el valor mas probable entre 0 y 200 y con algunos valores muy distintos dl resto. Estas características serán las que miraremos más adelante cuando queramos caracterizar distribuciones de datos.
+
+### Boxplot
+Un boxplot también nos da pistas acerca de la distribución de un conjunto de datos
+```{r}
+boxplot(murders$total)
+```
+Vemos que la caja tiene una linea central (la mediana) que en este caso no está en el medio, lo cual significa que el 50% de los valores más pequeños están más cerca entre si que los valores del 50% superior. Además vemos tres puntos por encima de la linea (whishart). Estos son outliers. Tenemos 3 entre los datos más altos. Los outliers o valores extremos están más allá del valor que deja a su izquierda el 75% de la distribución multiplicado por 1.5. Todos estos datos se pueden observar usando la función *summary()* sobre un vector numérico:
+```{r}
+summary(murders$total)
+```
+Los boxplots son particularmente interesantes para comparar distribuciones de diferentes grupos de datos. Por ejemplo, como tenemos la información del número de asesinatos por region podemos hacer un boxplot del número de asesinatos para cada region:
+```{r}
+boxplot(murders$total~murders$region)
+```
+La región con el menor número de asesinatos en general es "West", aunque hay dos estados que son outliers. Podemos buscarlo:
+```{r}
+murders.west<-filter(murders,region=="West")
+murders.west[which.max(murders.west$total),]
+
+```
+
+La región con un mayor número de asesinatos en general es "South"
+
+### Ejercicio #1: dataset *babies*
+Utilizando el dataset "babies.txt"
+
+1. Utilizando un scatterplot *plot()* encontrar si existe una relación de algún tipo entre el peso al nacimiento de los bebés y la edad gestacional (en semanas)
+
+2. Compara utilizando un boxplot la distribución de los pesos al nacer de los niños con madres fumadoras frente a aquellos con madres no fumadoras
+
+3. Explora usando un histograma la distribución general de los pesos de los bebes.
+
+
+------------------------------------------------------------------------------
+
+1. Utilizando un scatterplot *plot()* encontrar si existe una relación de algún tipo entre el peso al nacimiento de los bebés y la edad gestacional (en semanas)
+```{r}
+setwd("C:/Users/fscabo/Desktop/MasterDataScience_KSchool/Ejercicios")
+babies=read.delim("babies.txt",header=T,sep="\t",stringsAsFactors = F)
+plot(babies$bwt,babies$gestation)
+
+#necesitamos poner a NA los missing (999)
+babies$gestation[which(babies$gestation=="999")]=NA
+plot(babies$bwt,babies$gestation)
+
+```
+2. Compara utilizando un boxplot la distribución de los pesos al nacer de los niños con madres fumadoras frente a aquellos con madres no fumadoras
+```{r}
+boxplot(babies$bwt~babies$smoke)
+```
+3. Explora usando un histograma la distribución general de los pesos de los bebes.
+```{r}
+hist(babies$bwt)
+```
+
+## Sumarizando datos y detectando outliers
+
+Cuando tenemos muchos datos lo primero que solemos querer hacer es intentar resumir la información en un sólo número. En principio esto debería de darnos una idea acerca de algunas de las características importantes de nuestros datos. Queé medidas de sumarización se nos ocurren? La media, la mediana, la desviación estandar...ahora vamos a ver cuando usar cada una de ellas, cuando son y cuando no son informativas.
+
+### Medidas de resumen paramétricas: Media y desviación standard
+Utilizando el ejemplo "babies.txt", calcular la media y la desviación estandar para los peso de los bebes:
+```{r}
+mean(babies$bwt)
+sqrt(var(babies$bwt))
+```
+Recordando cómo era su distribución (simétrica, un sólo valor más probable...) parece que estos valores son bastantes informativos acerca de estos datos
+
+### Medidas de resumen no paramétricas: Mediana, IQR
+Sin embargo, si miramos el histograma del total de asesinatos del ejemplo murder y calculamos los mismos parámetros
+```{r}
+hist(murders$total)
+mean(murders$total)
+sqrt(var(murders$total))
+```
+Como veis estos dos valores nos harian pensar que hay numeros de asesinatos negativos en algunos estados, no nos da pistas acerca del numero mas habitual de asesinatos que encontramos y no podriamos saber que el numero de asesinatos es tan alto como 1400 en otros. Hay otros parámetros para sumarizar datos que no siguen una distribución "normal":
+```{r}
+median(murders$total)
+IQR(murders$total)
+```
+La mediana nos dice cual es el valor que deja el 50% de los datos a la izquierda de el y el 50% a su derecha. El IQR (Interquantile Range) nos da una idea de en que intervalo cae el 50% de los datos. Podemos calcular los quantiles de una distribucion usando:
+```{r}
+summary(murders$total)
+summary(babies$bwt)
+```
+Si un conjunto de datos es aproximadamente normal (simétrico, con un sólo valor más probable, etc) en ese caso la media y la mediana son muy parecidas, como en el caso del peso de los bebes. Sin embargo, cuando una distribución no es parecida a una normal (murders$total) la media y la mediana son muy distintas y la media no suele ser muy informativa. Tampoco la desviación estandard. El IQR se calcula como Q_3-Q_1. Todos los valores que esten alejados 1.5 veces el IQR del q1 o de q3 se consideran outliers:
+```{r}
+summary(murders$total)
+q1=quantile(murders$total, p=0.25)
+q1
+q3=quantile(murders$total, p=0.75)
+q3
+iqr=(q3-q1)
+iqr
+r <- c(q1 - 1.5*iqr, q3 + 1.5*iqr)
+r
+```
+Buscamos los outliers:
+```{r}
+which(murders$total<=r[1])
+which(murders$total>=r[2])
+murders[which(murders$total>=r[2]),]
+```
+Hay otro tipo de outliers aún más lejanos que son los *far_out* outliers
+```{r}
+r2 <- c(q1 - 3*iqr, q3 + 3*iqr)
+r2
+which(murders$total>=r2[2])
+murders[which(murders$total>=r2[2]),]
+```
+Un tipo de plot que no habíamos visto y que también es muy informativo es el que compara los quantiles de nuestros datos con los de una distribucion normal:
+```{r}
+qqnorm(murders$total)
+qqline(murders$total)
+```
+Frente a esto, la distribución de los pesos de los bebes tienen una distribución mas o menos normal, con la excepción de que las colas son mas pesadas.
+```{r}
+qqnorm(babies$bwt)
+qqline(babies$bwt)
+```
+Finalmente, para datos no normales hay otra medida que nos da una idea de la dispersión, la *mad*: median absolute deviation. Se trata de la suma de la distancia absoluta entre cada valor y la mediana. 
+```{r}
+mad(babies$bwt)
+mad(murders$total)
+```
+## Sumarizando data con *dplyr()*
+
+### *summarize()*
+Vamos a utilizar los datos de alturas del paquete dslabs
+```{r}
+library(dslabs)
+data(heights)
+head(heights)
+str(heights)
+```
+La función *summarize()* del paquete *dplyr* nos calcula cualquier agregado que le pidamos de un vector de un data.frame o de un tibble. Como el input era un data.frame() el output también lo es.
+```{r}
+s <- heights %>% 
+  filter(sex == "Male") %>%
+  summarize(average = mean(height), standard_deviation = sd(height))
+s
+str(s)
+```
+Como ya comentamos anteriormente, para datos que no siguen una distribución normal o gausiana es mejor utilizar la mediana, mad o IQR. Podemos usar otra vez la función *summarize* para el data de total murders:
+```{r}
+s <- murders %>%
+  summarize(median = median(total), mad=mad(total),min=min(total),max=max(total))
+s
+str(s)
+```
+NOTA: con la función *summarize* solo podemos llamar funciones que devuelvan un solo valor. 
+
+### *dot*
+Recordemos en el último ejercicio de la sesión II necesitábamos sumarizar el rate por estado del dataset murders para poder unirlo a la tabla con el rate de todos los países del mundo. 
+```{r}
+s <- murders %>% 
+  mutate(rate=total/population*100000) %>%
+  summarize(mean(rate))
+s
+str(s)
+```
+Como las funciones de dplyr devuelven el mismo tipo de objeto que su input en este caso queremos acceder sólo al valor que tienen almacenado. Podemos hacerlo asi:
+```{r}
+s
+s %>% .$rate
+```
+"." simplemente reemplaza al objeto que pasamos por el pipe, en este caso s que es n data frame. Por eso accedemos su información con $
+```{r}
+s <- murders %>% 
+  summarize(rate=mean(total)/mean(population)*100000) %>%
+  .$rate
+s
+```
+### group_by()
+```{r}
+babies.new<-babies %>% 
+  select(bwt, smoke) %>% 
+       group_by(smoke)  
+str(babies.new)
+babies.new
+```
+```{r}
+babies %>% 
+  select(bwt, smoke) %>% 
+       group_by(smoke)  %>% 
+  summarize(mean(bwt))
+```
+### Ordenar data.frames: *arrange()* *top_n()*
+La función *arrange()* ordena tablas enteras por una variable
+```{r}
+murders %>% arrange(population) %>% head()
+```
+```{r}
+murders %>% mutate(rate=total/population*100000)%>%
+  arrange(rate) %>% 
+  head()
+```
+
+Si tenemos empates podemos usar una segunda columna para deshacer dicho empate:
+```{r}
+murders %>% mutate(rate=total/population*100000)%>%
+  arrange(total,rate) %>% 
+  head()
+```
+Por último podemos seleccionar las primeras filas de un data.frame o de un tibble usando la función *top_n()*. Nota que la función *desc()* indica que se ordena de manera descendente el data.frame.
+```{r}
+murders %>% mutate(rate=total/population*100000)%>%
+  arrange(desc(rate)) %>%
+  top_n(10)
+```
+### Ejercicio #2: Distribución de las alturas de los estudiantes
+Recogemos la altura, el género y la edad de todos los miembros de la clase. 
+
+* Escribir los datos en un fichero y guardalo en tu directorio de trabajo con el nombre: "alturas.txt"
+* Leelo en R en el objeto "altura"
+* Haz un scatterplot que relacione la altura con la edad
+* Que distribucion tiene la altura? Y la edad? Cual seria la mejor forma de sumarizar la altura? Y la edad?
+* Haz un boxplot que muestre la distribución de alturas en hombres frente a mujeres
+* Hay algun outlier?
+* Utilizando *dplyr* sumariza la altura de los hombres y de las mujeres por separado
+* quienes son los tres hombres mas altos de la clase? Y las tres mujeres más jóvenes?

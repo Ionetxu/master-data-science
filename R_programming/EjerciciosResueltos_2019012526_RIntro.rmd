@@ -1,0 +1,458 @@
+---
+title: "Ejercicios resueltos sesiones R"
+author: "FSC"
+date: "January 27, 2019"
+output:
+  pdf_document: 
+    toc: true
+    toc_depth: 5
+  html_document: 
+    toc: true
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Librerías 
+Para poder seguir el curso así como para la realización de los ejercicios necesitas tener instaladas las siguientes librerías. Una vez instaladas necesitan ser cargadas en las sesión de R cada vez que quieras usar funciones dentro de ellas usando el comando library()
+```{r,message=FALSE,warning=F}
+library(dslabs)
+library(eurostat)
+library(dplyr)
+library(ggplot2)
+library(ggfortify)
+library(tidyr)
+library(tidyverse)
+library(knitr)
+library(rvest)
+```
+Para instalar un paquete, se puede hacer utilizando la consola de RStudio en Tools-> Install Packages. Si teniendo seleccionada la opción "Instalar desde CRAN" la librería que buscamos no se autocompletan necesitaremos buscarla en internet y descargar un archivo "tar.gz" o un archivo ".exe" e instalarlo con la opción: "Descargar un paquete"
+
+*NOTA: Es recomendable que tengáis una instalación local de R y RStudio. Primero se requiere la instalación de R siguiendo las instrucciones en http://r-project.org en función de la plataforma en la que estéis trabajando (windows, mac, linux). A continuación instalar RStudio desde https://www.rstudio.com/
+
+Así mismo, os recomiendo que abráis un script nuevo en RStudio (pantalla superior izquierda) que se llame Ejercicios.r y que guardareis en el directorio de trabajo y en el que iréis escribiendo todos los comandos. Si queréis escribir lineas de comentario y no de código empizan con el símbolo #
+
+##Sesión 1: Introducción a R
+En primer lugar, crea un directorio en el lugar que prefieras de tu máquina y cambia tu espacio de trabajo o *working directory* a esa carpeta.
+```{r,message=F,warning=F}
+dir1="C:/Users/fscabo/Desktop/Ejercicios"
+dir.create(dir1)
+setwd(dir1)
+```
+En este directorio necesitas tener los siguientes ficheros de texto con datos que utilizaremos en los siguientes ejercicios:
+
+  ++ "EU.Stats.transport.txt"
+  ++
+  
+### Ejercicio #1: Construyendo nuestras propias funciones
+La suma de N enteros consecutivos a partir de 55 (excluyéndolo) es 738. Calcula N. 
+
+*Pista: 1+...+n=sum_n=(a1+an)n/2*
+
+Para probar, podemos empezar por generar una función que compute de forma rápida la suma de N enteros entre a_1 y a_n (a_1+....a_n) utilizando la fórmula anterior. Podemos probar con varias combinaciones empezando a partir de 56 para ver cómo nos vamos aproximando a 738.
+```{r}
+sum_n=function(a_1,a_n){
+  n=a_n-a_1
+  return(n*(a_1+a_n)/2)
+}
+sum_n(56,60)
+sum_n(56,62)
+```
+Podemos hacer esto hasta llegar a 738 o podemos darnos cuenta de que tenemos que encontrar N en la ecuación:
+
+56+....+N=738
+
+(55+1)+(55+2)+...+(55+M)=738
+
+55*M+(1+...+M)=738
+
+55\*M+M\*(1+M)/2=738
+
+55\*M+(M+M^2)/2=738
+
+110*M+M+M^2=1476
+
+M^2+M-1376=0
+
+Anteriormente en el curso hemos creado una funcion para calcular las soluciones de una ecuación de segundo grado:
+```{r}
+sol.quad=function(a,b,c){
+  sol_1=(-b + sqrt(b^2 - 4*a*c) ) / ( 2*a )
+  sol_2=(-b - sqrt(b^2 - 4*a*c) ) / ( 2*a )  
+  return(c(sol_1,sol_2))
+}
+```
+Podemos por lo tanto usarla para calcular la solucion a M:
+```{r}
+M=sol.quad(1,1,-1376)
+M
+```
+Recuerda que M es un vector numérico de dos elementos. Accedemos a los elementos de un vector utilizando el índice entre corchetes:
+```{r}
+M[1]
+M[2]
+```
+Como el enunciado preguntaba por un número natural la solución tiene que ser:
+```{r}
+N=55+M[1]
+N
+```
+### Ejercicio #2: Accediendo a los elementos de un data.frame y de un vector
+Utilizando el dataset "EU.Stats.transport.txt" que es un fichero de texto separado por tabulador contesta a las siguientes preguntas:
+
+* Para cuantos tipos de vehiculos tenemos informacion en esta tabla?
+```{r}
+#en primer lugar leemos el fichero utilizando la función read.delim 
+#y asignamos a la variable transport el data.frame generado
+getwd()
+transport=read.delim(file = paste(dir1,"EU.Stats.transport.txt",sep="/")
+                     ,header=T,sep="\t")
+# revisamos la estructura de este data.frame para saber que variables contiene y de que tipo
+str(transport)
+#accedemos a los primeros valores de la variable vehicle
+head(transport$vehicle)
+#al ser una variable de tipo factor podemos ver sus niveles utilizando la función levels
+levels(transport$vehicle)
+length(levels(transport$vehicle))
+```
+RECOMENDADO: Podríamos haber leído el archivo activando la función utilizando el parametro *stringsAsFactors=F*. En ese caso la forma de encontrar la solución sería:
+```{r}
+#en primer lugar leemos el fichero utilizando la función read.delim 
+#y asignamos a la variable transport el data.frame generado
+transport=read.delim(file = paste(dir1,"EU.Stats.transport.txt",sep="/"),
+                     header=T,
+                     sep="\t",
+                     stringsAsFactors = F)
+# revisamos la estructura de este data.frame para saber que variables contiene 
+#y de que tipo
+str(transport)
+#accedemos a los primeros valores de la variable vehicle
+head(transport$vehicle)
+#la función unique nos devuelve los elementos únicos de un vector 
+#y length() nos da el tamaño de un vector
+length(unique(transport$vehicle))
+```
+* Cuantos años tenemos reportados para cada pais?
+```{r}
+length(unique(transport$time))
+```
+* Cual es el valor del uso del tren en Austria en 1990?
+
+```{r}
+#generamos un vector lógico z que contiene TRUE si se cumplen las tres condiciones 
+#y FALSE si no.
+z<-transport$vehicle=="TRN" & transport$geo=="AT" & transport$time=="1990"
+head(z)
+#which nos devuelve los índices que son TRUE de un vector lógico
+which(z)
+#podemos utilizar este índice para acceder a los datos del data.frame 
+#transport que cumplan esa condicion
+transport[which(z),]
+#como la variable values es un vector podemos acceder al valor que 
+#queremos directamente usando el indice
+transport$values[which(z)]
+```
+### Ejercicio #3: Ordenando vectores numéricos. which & which.min
+Copia el dataset "babies.txt" en tu directorio de trabajo.
+
+* Calcula el menor peso de un bebé recien nacido
+```{r}
+#en primer lugar leemos el dataset babies utilizando la función read.delim()
+# y la opcion stringsAsFactors=F
+print(paste(dir1,"babies.txt",sep="/"))
+babies=read.delim(paste(dir1,"babies.txt",sep="/")
+                  ,header=T,sep="\t",stringsAsFactors = F)
+#Opción 1: podemos obtener el menor peso de un bebe ordenando el vector babies$bwt 
+head(sort(babies$bwt))
+#y leyendo el primer elemento de ese nuevo vector ordenado 
+sort(babies$bwt)[1]
+#Opción 2: podemos obtener el index del menor elemento del vector ordenado
+#de menor a mayor
+order(babies$bwt)[1]
+#Opción 3: podemos utilizar la función min y which.min
+min(babies$bwt)
+which.min(babies$bwt)
+```
+* En qué semana de gestación nació el bebé de menor peso?
+```{r}
+#tenemos la edad gestacional medida en dias. 
+#añadimos una columna al data.frame que sea la edad gestacional en semanas
+babies=data.frame(babies,gestation.w=babies$gestation/7)
+#ahora utilizamos el anterior indice para ver la edad gestacional de la madre
+babies$gestation.w[which.min(babies$bwt)]
+```
+* Era la madre fumadora?
+```{r}
+babies$smoke[which.min(babies$bwt)]
+```
+* Encuentra todos esos datos para el bebé de mayor peso
+```{r}
+babies[which.max(babies$bwt),]
+```
+### Ejercicio #4: Ordenando vectores numéricos. which & which.min
+Accede al dataset "murders" del paquete *dslabs*
+```{r}
+#cuando accedemos a un dataset contenido en un paquete de R 
+#los datos se cargan en R en un data.frame de nombre el del dataset
+#mediante la funcion data()
+data(murders)
+str(murders)
+```
+* Cual es el estado con el menor número de asesinatos? 
+```{r}
+#Buscamos el estado con el menor número de asesinatos (variable total)
+which.min(murders$total)
+#accedemos al elemento del vector $state que contiene el menor valor de murders
+murders$state[which.min(murders$total)]
+```
+* Es el más seguro?
+
+Para responder a esta pregunta tenemos que calcular el ratio de asesinatos por cada 100.000 habitantes y buscar el estado con el minimo ratio.
+```{r}
+murders=data.frame(murders,rate=murders$total/murders$population*100000)
+murders[which.min(murders$rate),]
+murders$state[which.min(murders$rate)]
+```
+### Ejercicio #5: Vectores lógicos y el comando *table*
+
+Usando el dataset "babies"
+
+
+
+* Cuantas madres eran smokers? cuantos bebes con peso por debajo de 120 nacieron de madres fumadoras?
+Sumando un vector lógico obtenemos el número de elementos del vector que cumplen una condicion. Los TRUES se transforman en 1s y los FALSE en 0s.
+```{r}
+sum(babies$smoke==0)
+sum(babies$smoke==0 & babies$bwt< 120)
+
+```
+Y de no fumadoras?
+```{r}
+sum(babies$smoke==1)
+sum(babies$smoke==1 & babies$bwt< 120)
+```
+
+* Responde a las mismas preguntas generando un vector con entradas UW para bebes con peso por debajo de 120 y NW para bebes mayores de 120. Después utilizando la función *table()* construye una tabla de contingencia con el numero de fumadores/no y de bebes UW/NW
+```{r}
+bwt.cat=vector(length=length(babies$bwt))
+bwt.cat[which(babies$bwt<120)]<-"UW"
+bwt.cat[which(babies$bwt>=120)]<-"NW"
+
+table(bwt.cat,babies$smoke)
+```
+* Identifica los valores "9" de la columna "smoke" y asígnales el valor *NA*. Este valor significa que el data no se recogió y R es capaz de trabajar con él sabiéndolo. 
+
+```{r}
+babies$smoke[which(babies$smoke==9)]=NA
+# la función is.na() nos devuelve TRUE si la entrada de un vector 
+# contiene un valor perdido
+which(is.na(babies$smoke))
+```
+Vuelve a calcular la tabla de contingencia
+```{r}
+table(bwt.cat,babies$smoke)
+```
+### Ejercicio #6: *which(),match(),%in%* y operaciones con vectores numéricos. 
+Usando el data.frame transport que ya tienes en tu entorno de trabajo:
+
+* Qué años cubrió la estadística?
+```{r}
+min(transport$time)
+max(transport$time)
+```
+
+* En que pais se produjo un mayor incremento del uso del coche en este período? 
+```{r}
+#definimos un mini data.frame que contenga solo los datos de uso de coche en 1990 
+#y otro para 2016
+car.1990=transport[transport$time==1990 &transport$vehicle=="CAR",]
+car.2016=transport[transport$time==2016 &transport$vehicle=="CAR",]
+
+# con la función %in% comprobamos si todos los paises
+# para los que hay dato en 1990 tienen datos en 2016
+car.1990$geo %in% car.2016$geo 
+
+#ahora tenemos que ordenar los dos data.frames de la misma forma
+# buscamos, para los paises ordenados como en car.1990,
+# cuales son sus posiciones en car.2016
+ix=match(car.1990$geo,car.2016$geo)
+
+#Ahora ya podemos restar los dos vectores 
+#porque los paises estan en el mismo orden
+diff.rates=car.2016$values[ix]-car.1990$values
+
+#podemos calcular el índice del de mayor diferencia
+max(diff.rates)
+which.max(diff.rates)
+
+#y podemos ver a que pais corresponde
+car.1990$geo[which.max(diff.rates)]
+```
+
+* En que paises ha descendido el uso del coche?
+
+```{r}
+which(diff.rates<0)
+
+neg.count=car.1990$geo[which(diff.rates<0)]
+
+neg.count
+```
+### Ejercicio #7: *dplyr()*, *aggregate()* y primer plot
+
+* Usando el data.frame *transport* selecciona los datos correspondientes a la serie temporal (ie años y valores) de uso del coche en UK y en TR.
+
+```{r}
+uk.ts.data=transport %>% select(vehicle,geo,time,values) %>% filter(vehicle=="CAR") %>% filter(geo=="UK") %>% select(time,values)
+tr.ts.data=transport %>% select(vehicle,geo,time,values) %>% filter(vehicle=="CAR") %>% filter(geo=="TR") %>% select(time,values)
+```
+
+* Dibuja sus tendencias
+```{r}
+plot(uk.ts.data,pch=".",ylim=c(25,90))
+lines(uk.ts.data)
+lines(tr.ts.data,lty=2)
+```
+* Utiliza la función *aggregate* para obtener la media del uso del coche a traves delos distintos paises de la UE entre 1990 y 2016 y pintalo.
+```{r}
+#nos centramos en los datos de uso de coche
+ue.car=transport[which(transport$vehicle=="CAR"),]
+#explora la sintaxis de la función aggregate()
+? aggregate
+#esta función pide como primer argumento el vector de datos que queremos sumarizar (i.e. values)
+#como segundo el vector por el que queremos agregar (i.e. time). Se lo tenemos que proporcionar como una lista:list(transport$time)
+#finalmente le damos la funcion que queremos usar para agregar, en este caso mean.
+#adicionalmente le pasaríamos, separados por comas, parametros de dicha función de agregación
+ue.car.ts=aggregate(ue.car$values,by=list(ue.car$time),mean)
+head(ue.car.ts)
+```
+Pinta las tendencias de los dos paises y la media de la UE (en rojo)
+```{r}
+plot(uk.ts.data,pch=".",ylim=c(25,90))
+lines(uk.ts.data)
+lines(tr.ts.data,lty=2)
+lines(ue.car.ts,col="red")
+```
+
+### Ejercicio #8: *dplyr()*
+* Repite el ejercicio #4 usando *dplyr::mutate()*
+```{r}
+murders<-murders %>% mutate(rate=total/population*100000)
+# similarmente
+murders<-mutate(murders,rate=total/population*100000)
+#no olvideis asignarle a murders la nueva variable
+
+murders[which.min(murders$rate),]
+murders$state[which.min(murders$rate)]
+```
+
+## Sesión 2: Importación de datos, *tibbles()* y objetos *tidy*
+### Ejercicio #1: Importar datos de la web y escribirlos en un fichero de texto
+
+Utilizando la función *read_html* del paquete *rvest* nos bajamos de internet la tabla de asesinatos en todo el mundo que aparece en wikipedia
+
+```{r, eval=TRUE}
+url="https://en.wikipedia.org/wiki/List_of_countries_by_intentional_homicide_rate"
+h <- read_html(url)
+class(h)
+h
+```
+
+Hay una seccion del codigo html que comienza con <table class="wikitable sortable">. Ahi estan los datos de la tabla que queremos leer en R. Por exploración del código html vemos que es la cuarta de las "wikitable sortable"
+```{r, eval=TRUE}
+tab <- h %>% html_nodes("table")
+tab <- tab[[4]] %>% html_table
+head(tab)
+class(tab)
+```
+
+Los datos de la tabla están almacenados en la variable tab, que es un data frame
+```{r, eval=TRUE}
+head(tab)
+class(tab)
+```
+Escribe el data.frame tab en un fichero de texto llamado "murders.world.txt" separado por "\t", sin quotation y sin nombres de filas en tu directorio de trabajo:
+```{r}
+write.table(tab,"murders.world.txt",quote=F,sep="\t",row.names=F)
+```
+
+### Ejercicio #2: Repaso de *dplyr*
+Utilizando el data.frame *tab vamos a comparar as muertes violentas en europa con las de USA contenidas en el data.frame murders
+
+* Vuelve a cargar el data.frame murders del paquete *dslabs* y, usando *mutate()*, añadele una columna rate que calcule para cada estado el ratio de muertes por 100.000 habitantes
+```{r}
+data(murders)
+murders<-mutate(murders,rate=total/population*100000)
+```
+* Calcula la media del rate para todos los estados y genera un data.frame que contenga solo una fila con el nombre del pais (USA), el año de la estadistica (2015) y su rate de asesinatos por cada 100.000 habitantes
+```{r}
+usa.murders<-data.frame(Country="USA",rate=mean(murders$rate),year=2015)
+```
+* Usando dplyr::filter() y dplyr::select() sobre el data.frame *tab* selecciona los rates de asesinatos en paises europeos y quédate con las columnas country, rate y Yearlisted
+```{r}
+#primero le cambiamos al data.frame tab el nombre de la primera columna para poderla manejar mejor
+names(tab)
+#names(tab) es un vector. Accedemos a su primer componente:
+names(tab)[1]="country"
+head(tab)
+
+#cambiamos tambien "Yearlisted" by Year
+names(tab)[6]="Year"
+
+eu.murders<-tab %>%
+                dplyr::filter(Region=="Europe")%>%
+                dplyr::select(country,Rate,Year)
+head(eu.murders)
+```
+* Usando las funciones *rbind()* and *cbind()* podemos unir rows (filas) o columnas de data.frames. Para unir filas con rbind() tienen que tener el mismo nombre. MOdificamos los nombres de eu.murders y unimos ambos data.frames
+```{r}
+names(eu.murders)=names(usa.murders)
+
+all.murders=rbind(eu.murders,usa.murders)
+```
+* Que paises de la UE tiene una mayor tasa de asesinatos que USA?
+```{r}
+all.murders[which(all.murders$rate>usa.murders$rate),]
+```
+### Ejercicio #3: *tibbles*
+Recuerda que las funciones *read_csv()*, *read_tsv()*, *read_csv2* almacenan los datos leidos desde un archivo de texto (comma-separated, tab-separated o ;-separated, respectivamente) en R en un tipo de objeto mas eficiente que los data.frames: los tibbles. 
+
+* Utilizando la función *read_tsv()* lee el fichero "murders.world.txt"
+```{r}
+#explora los parámetros que necesita la función "read_tsv"
+# ? read_tsv
+# lee por defecto la primera fila como los nombres de las columnas
+world.murders=read_tsv("murders.world.txt")
+world.murders
+#nota que no necesitas usar header()porque un tibble 
+#sólo muestra las primeras 10 filas del objeto
+```
+* En primer lugar, vamos a cambiarle el nombre a la primera y sexta columna del tibble:
+```{r}
+names(world.murders)[1]="country"
+names(world.murders)[6]="year"
+```
+
+* Ahora seleccionamos con dplyr::filter() y dplyr::select() los rates de asesinatos en paises europeos solo y nos quedamos con las columnas country and rate:
+```{r}
+eu.murders<-world.murders %>%
+                dplyr::filter(Region=="Europe")%>%
+                dplyr::select(country,Rate,year)
+eu.murders
+```
+Estas funciones funcionan igual sobre un df que sobre un tibble. Pero aqui seguimos teniendo un tibble. Incluso si solo hubieramos seleccionado una columna
+
+* Añadir la fila con la informacion de USA al tibble.
+```{r}
+bind_rows(eu.murders,as.tibble(usa.murders))
+#como no se llaman igual las columnas simplemente crea otras. 
+#rbind no nos dejaría hacerlo
+names(eu.murders)=names(usa.murders)
+all.murders=bind_rows(eu.murders,as.tibble(usa.murders))
+all.murders
+```
+* Que paises de la UE tiene una mayor tasa de asesinatos que USA?
+```{r}
+all.murders[which(all.murders$rate>usa.murders$rate),]
+```
